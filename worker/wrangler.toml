@@ -1,0 +1,26 @@
+# Ledger chat proxy, deployed at https://ledger-chat.clintchegin.workers.dev/chat (CHAT_ENDPOINT in gen_merged.py).
+# Deploy:  npx wrangler login   (or CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID in the env)
+#          npx wrangler secret put XAI_API_KEY
+#          npx wrangler deploy
+# Rate limiting: SQLite-backed Durable Object RateLimiter (binding RLDO; works on the free plan):
+# 30 req / 10 min per IP and a global cap of 1000 req per UTC day, plus an in-memory per-isolate window.
+name = "ledger-chat"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGIN = "https://clintchegin.github.io"
+MODEL = "grok-4.20-0309-non-reasoning"
+
+[observability]
+enabled = false
+
+
+[[durable_objects.bindings]]
+name = "RLDO"
+class_name = "RateLimiter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RateLimiter"]
