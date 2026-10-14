@@ -10,8 +10,8 @@ export function installMock() {
     const reply = (message) => new Response(JSON.stringify({ model: b.model + ' (MOCK)', choices: [{ message }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (last.role === 'tool') {
       const t = JSON.parse(last.content), o = t.outputsAfterChange || t.outputs, f = n => '$' + Math.round(n).toLocaleString('en-US');
-      const fat = o.tiers.find(t => t.tier === 'Fat');
-      return reply({ role: 'assistant', content: `Done. Retiring at **${o.retireAge}**, you'd have **${o.balanceAtRetirement}** and reach full FIRE at **${o.fullFireAge}**. You're on pace for ${o.onPaceFor}; Fat FIRE is ${fat.pctFunded} funded.` });
+      const fat = o['FIRE tiers'].find(t => t.Tier === 'Fat');
+      return reply({ role: 'assistant', content: `Done. Retiring at **${o['Retirement age']}**, you'd have **${o['Balance at retirement']}** and reach full FIRE at **${o['Full FIRE age']}**. You're on pace for ${o['On pace for']}; Fat FIRE is ${fat['% of target funded']} funded.` });
     }
     const q = last.content.toLowerCase(), args = {};
     const m = q.match(/retire at (\d+)/); if (m) args.ret = +m[1];
