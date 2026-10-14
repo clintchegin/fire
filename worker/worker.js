@@ -66,7 +66,7 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
     if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405, origin);
     if (!env.XAI_API_KEY) return json({ error: 'not_configured' }, 503, origin);
-    let ip = req.headers.get('CF-Connecting-IP') || req.headers.get('X-Forwarded-For') || 'unknown';
+    let ip = req.headers.get('CF-Connecting-IP') || 'unknown'; // set by Cloudflare; client headers like X-Forwarded-For are spoofable
     if (ip.includes(':')) { // IPv6: key by /48; relays (e.g. 2a04:4e41::) rotate addresses across /64s on every request
       const [h, t = ''] = ip.split('::'), hs = h.split(':'), ts = t ? t.split(':') : [];
       const full = [...hs, ...Array(Math.max(0, 8 - hs.length - ts.length)).fill('0'), ...ts];
@@ -83,8 +83,13 @@ export default {
     if (wait) return json({ error: 'rate_limited', retry_after: wait }, 429, origin, { 'Retry-After': String(wait) });
     const cl = Number(req.headers.get('Content-Length'));
     if (cl > MAX_BODY) return json({ error: 'too_large' }, 413, origin);
-    const raw = await req.text();
-    if (raw.length > MAX_BODY) return json({ error: 'too_large' }, 413, origin);
+    let raw = '';
+    if (req.body) { // stream-read with a hard cap, so chunked bodies without Content-Length can't exceed MAX_BODY
+      const rd = req.body.getReader(), dec = new TextDecoder(); let n = 0;
+      for (;;) { const { done, value } = await rd.read(); if (done) break; n += value.byteLength;
+        if (n > MAX_BODY) { try { await rd.cancel(); } catch {} return json({ error: 'too_large' }, 413, origin); }
+        raw += dec.decode(value, { stream: true }); }
+      raw += dec.decode(); }
     let body; try { body = JSON.parse(raw); } catch { return json({ error: 'bad_json' }, 400, origin); }
     if (!body || typeof body !== 'object') return json({ error: 'bad_request' }, 400, origin);
     const messages = cleanMessages(body.messages); // body.tools is ignored: the schema is fixed server-side
